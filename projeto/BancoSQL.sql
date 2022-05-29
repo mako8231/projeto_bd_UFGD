@@ -45,10 +45,10 @@ CREATE TABLE Servico (
 
 CREATE TABLE Trabalha (
 	Fcpf INT(12) NOT NULL,
-    IdServico INT NOT NULL, 
+    IdVeiculo INT NOT NULL, 
     
     CONSTRAINT fk_func_cpf foreign key (Fcpf) REFERENCES Funcionario(Cpf) ON UPDATE CASCADE,
-    CONSTRAINT fk_servico_id foreign key (IdServico) REFERENCES Servico(IdServico) ON UPDATE CASCADE
+    CONSTRAINT fk_veiculo_id foreign key (IdVeiculo) REFERENCES Servico(IdVeiculo) ON UPDATE CASCADE
 );
 
 CREATE TABLE Despesa (
@@ -63,6 +63,46 @@ CREATE TABLE Despesa (
     PRIMARY KEY (IdDespesa),
     FOREIGN KEY(emissor) REFERENCES Funcionario(Cpf)
 );
+
+#CRIAR UMA TABELA PARA A MÃO DE OBRA DE CADA VEÍCULO 
+CREATE TABLE Mao_de_obra (
+	IdVeiculo INT NOT NULL,
+    Valor_mao_de_obra DOUBLE NOT NULL DEFAULT 0,
+	
+    CONSTRAINT fk_veiculo_mdb foreign key (IdVeiculo) REFERENCES Veiculo(IdVeiculo) ON UPDATE CASCADE
+);
+
+
+DELIMITER $$
+CREATE FUNCTION salario(cpf INT(11))
+RETURNS DOUBLE DETERMINISTIC 
+BEGIN 
+DECLARE Sal DOUBLE; 
+    SELECT Salario FROM Funcionario f WHERE f.cpf = cpf INTO Sal;
+	RETURN Sal;
+END $$
+
+#valor da mão de obra será definido por 10% do salário do funcionario
+DELIMITER $$ 
+CREATE FUNCTION calc_mao_obra (cpf INT(11))
+RETURNS DOUBLE DETERMINISTIC 
+BEGIN 
+DECLARE valor_mao_de_obra DOUBLE;
+DECLARE sal DOUBLE; 
+SET sal = salario(cpf);
+SET valor_mao_de_obra = sal * 0.10;
+RETURN valor_mao_de_obra; 
+END $$
+
+DELIMITER $
+CREATE TRIGGER valor_mao_de_obra AFTER INSERT 
+ON Trabalha
+FOR EACH ROW 
+BEGIN 
+DECLARE val_mao_de_obra DOUBLE;
+	INSERT INTO Mao_de_obra (IdVeiculo, Valor_mao_de_obra) VALUES 
+		(NEW.IdVeiculo, calc_mao_obra(NEW.Fcpf));
+END$
 
 INSERT INTO Funcionario(Cpf, Pnome, Unome, Ocupacao, Salario) VALUES 
 (1111111111, "João", "Silva", "Mecânico", 800.00),
@@ -92,7 +132,7 @@ INSERT INTO Servico(NomeServico, Orcamento, IdVeiculo) VALUES
 ("Troca da Direção", 500.20, 3),
 ("Manutenção do freio dianteiro", 350.20, 4);
 
-INSERT INTO Trabalha (Fcpf, IdServico) VALUES 
+INSERT INTO Trabalha (Fcpf, IdVeiculo) VALUES 
 	(1111111111, 1),
     (2111222211, 2),
     (1111222211, 3),
@@ -101,6 +141,9 @@ INSERT INTO Trabalha (Fcpf, IdServico) VALUES
     
 INSERT INTO Despesa (NomeDespesa, Valor, DataInicio, DataVencimento, Emissor, Pago) VALUES 
 	("Compra de pneus", 270, NOW(), NOW(), 1111111111, TRUE),
-    ("Compra velas de motor", 120, NOW(), "2022-07-23", 1111222211, false);
+    ("Compra velas de motor", 120, NOW(), "2022-07-23", 1111222211, false),
+    ("Salgadinhos do seu zé", 7.00, NOW(), NOW(), 1111111111, true);
+
+
 
 select * from Servico s natural join Veiculo v natural join Cliente c 
