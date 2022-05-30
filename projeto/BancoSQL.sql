@@ -27,6 +27,7 @@ CREATE TABLE Veiculo (
 	Modelo VARCHAR(45), 
     AnoFabricacao DATE, 
     Potencia DOUBLE,
+    Servico_valor DOUBLE DEFAULT 0, 
     
     PRIMARY KEY (IdVeiculo),
 	CONSTRAINT fk_cliente FOREIGN KEY (IdCliente) REFERENCES Cliente(IdCliente) ON UPDATE CASCADE 
@@ -72,6 +73,70 @@ CREATE TABLE Mao_de_obra (
     CONSTRAINT fk_veiculo_mdb foreign key (IdVeiculo) REFERENCES Veiculo(IdVeiculo) ON UPDATE CASCADE
 );
 
+#triggers para o controle do valor de mão de obra e orçamento do serviço
+DELIMITER $$
+CREATE TRIGGER valor_servico_veiculo AFTER INSERT 
+ON Servico
+FOR EACH ROW 
+BEGIN 
+	UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor + NEW.orcamento WHERE IdVeiculo=NEW.IdVeiculo;
+END 
+$$
+
+DELIMITER $$
+CREATE TRIGGER atualizar_valor_servico_veiculo AFTER UPDATE 
+ON Servico
+FOR EACH ROW 
+BEGIN 
+	UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor - OLD.orcamento WHERE IdVeiculo=OLD.IdVeiculo;
+    UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor + NEW.orcamento WHERE IdVeiculo=NEW.IdVeiculo;
+END 
+$$
+
+DELIMITER $$
+CREATE TRIGGER apagar_valor_servico_veiculo AFTER delete 
+ON Servico
+FOR EACH ROW 
+BEGIN 
+	UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor - OLD.orcamento WHERE IdVeiculo=OLD.IdVeiculo;
+END 
+$$
+
+DELIMITER $$
+CREATE TRIGGER mao_de_obra_veiculo AFTER INSERT 
+ON mao_de_obra
+FOR EACH ROW 
+BEGIN 
+	UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor + NEW.valor_mao_de_obra WHERE IdVeiculo=NEW.IdVeiculo;
+END 
+$$
+
+DELIMITER $$
+CREATE TRIGGER apagar_mao_de_obra_veiculo AFTER DELETE
+ON mao_de_obra
+FOR EACH ROW 
+BEGIN 
+	UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor - OLD.valor_mao_de_obra WHERE IdVeiculo=OLD.IdVeiculo;
+END 
+$$
+
+DELIMITER $$
+CREATE TRIGGER atualizar_mao_de_obra_veiculo AFTER UPDATE 
+ON mao_de_obra
+FOR EACH ROW 
+BEGIN 
+	UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor - OLD.valor_mao_de_obra WHERE IdVeiculo=OLD.IdVeiculo;
+    UPDATE Veiculo 
+    SET Servico_valor = Veiculo.Servico_valor + NEW.valor_mao_de_obra WHERE IdVeiculo=NEW.IdVeiculo;
+END 
+$$
 
 DELIMITER $$
 CREATE FUNCTION salario(cpf INT(11))
@@ -94,6 +159,7 @@ SET valor_mao_de_obra = sal * 0.10;
 RETURN valor_mao_de_obra; 
 END $$
 
+
 DELIMITER $
 CREATE TRIGGER valor_mao_de_obra AFTER INSERT 
 ON Trabalha
@@ -110,5 +176,12 @@ SELECT NomeDespesa, Valor from despesa WHERE pago = FALSE;
 
 CREATE VIEW vServicos_nao_pagos
 AS 
-select sum(s.orcamento) + m.valor_mao_de_obra as TOTAL, c.contato, c.nome from Servico s natural join Veiculo v natural join Cliente c natural join mao_de_obra m WHERE s.pago = FALSE GROUP BY c.IdCliente 
+select sum(s.orcamento) + m.valor_mao_de_obra 
+as TOTAL, c.contato, c.nome 
+from Servico s 
+natural join Veiculo v 
+natural join Cliente c 
+natural join mao_de_obra m 
+WHERE s.pago = FALSE 
+GROUP BY v.idVeiculo 
 

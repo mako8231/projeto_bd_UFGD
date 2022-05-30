@@ -47,5 +47,4 @@ INSERT INTO Despesa (NomeDespesa, Valor, DataInicio, DataVencimento, Emissor, Pa
 	("Compra da tampa do volante de carro", 120.00 , NOW(), NOW(), 1111111111, true),
 	("Conta de Energia", 890.00, NOW(), "2022-08-31", NULL, false);
 	
-
-select * from Servico s natural join Veiculo v natural join Cliente c 
+select * from trabalha
